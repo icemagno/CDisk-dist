@@ -234,20 +234,6 @@ extern int EmptyFolder(char* folderPath);
 //     `{"error": "session not open"}` or `{"error": "failed to marshal results"}`.
 extern char* ListFile(char* searchPattern);
 
-// CopyFileMap copies the raw, encrypted filesystem table (fstab) to the host OS.
-// This is useful for debugging or backup purposes.
-//
-// Parameters:
-//   - dstPath: A C-style string representing the destination path on the host OS.
-//
-// Returns:
-//   - 0: Success.
-//   - -1: Failed to get the filesystem handle.
-//   - -3: Failed to open the source fstab file in the virtual filesystem.
-//   - -4: Failed to create the destination file on the host OS.
-//   - -5: Error during the copy process.
-extern int CopyFileMap(char* dstPath);
-
 // CopyFileMapDecrypted copies the filesystem table (fstab) to the host OS and decrypts it.
 // The result is a human-readable JSON file representing the filesystem's metadata.
 //
