@@ -11,6 +11,7 @@
 Descompacte o arquivo WAR 
 
 ```cat cdisk-1.1.* > combined_archive.gz```
+
 ```gunzip combined_archive.gz```
 
 Execute 
