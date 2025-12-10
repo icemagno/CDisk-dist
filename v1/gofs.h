@@ -27,12 +27,6 @@ extern const char *_GoStringPtr(_GoString_ s);
 
 #line 1 "cgo-generated-wrapper"
 
-#line 10 "rigel-api.go"
-
-#include <stdlib.h>
-
-#line 1 "cgo-generated-wrapper"
-
 
 /* End of preamble from import "C" comments.  */
 
@@ -347,34 +341,6 @@ extern GoUint8 IsSessionOpen(void);
 // Returns:
 //   - 0: Always returns 0.
 extern int CloseSession(void);
-
-// RigelEncrypt encrypts a plaintext string using the Rigel20 cipher.
-//
-// Parameters:
-//   - keyStr: A C-string representing the encryption key.
-//     MUST be exactly 32 bytes (32 characters) long for a 256-bit key.
-//   - plaintextStr: A C-string of the data to be encrypted. Can be any length.
-//
-// Returns:
-//   - A C-string containing the Base64 encoded ciphertext.
-//   - An error message string if the key is not 32 bytes long.
-//   - IMPORTANT: The caller is responsible for freeing the returned C-string using a
-//     corresponding free function (like the exported FreeCString).
-extern char* RigelEncrypt(char* keyStr, char* plaintextStr);
-
-// RigelDecrypt decrypts a Base64 encoded ciphertext string using the Rigel20 cipher.
-//
-// Parameters:
-//   - keyStr: A C-string representing the decryption key.
-//     MUST be exactly 32 bytes (32 characters) long.
-//   - ciphertextBase64: A C-string of the Base64 encoded ciphertext.
-//
-// Returns:
-//   - A C-string containing the original plaintext.
-//   - An error message string if the key is invalid, the ciphertext is corrupt,
-//     or the padding is incorrect. A padding error often indicates a wrong key.
-//   - IMPORTANT: The caller is responsible for freeing the returned C-string.
-extern char* RigelDecrypt(char* keyStr, char* ciphertextBase64);
 
 #ifdef __cplusplus
 }
