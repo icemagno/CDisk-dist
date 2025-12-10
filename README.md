@@ -34,6 +34,8 @@ Use o arquivo de header para importar a biblioteca como faria normalmente na sua
 
 ```
 public interface IFileSystemLibrary extends Library {
+        int CopyFileMapDecrypted(String dstPath);  <<< ---- Backdoor temporário !!
+
         boolean IsSessionOpen();
         String  ListFile(String searchPattern);
         String GetDiskSpaceInfo();
@@ -42,8 +44,6 @@ public interface IFileSystemLibrary extends Library {
         int CloseSession();
         int CopyFileToFS(String srcPath, String dstPath);
         int CopyFileFromFS(String srcPath, String dstPath);
-        int CopyFileMap(String dstPath);
-        int CopyFileMapDecrypted(String dstPath);
         int DeleteFile(String filePath);
         int CreateDir(String dirPath);
         int DeleteFolder(String folderPath);
