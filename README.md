@@ -89,17 +89,23 @@ A biblioteca emprega um esquema criptográfico multi-camadas para garantir confi
     *   **Como é usado**:
         *   **Ofuscação de Caminho**: O caminho visível para o usuário de cada arquivo e pasta (por exemplo, `/trabalho/relatorio.docx`) é "hasheado" usando SHA-256. A string hexadecimal resultante (por exemplo, `1a7f...`) torna-se o nome real desse item no disco virtual (`HashName`). Isso impossibilita discernir a estrutura original do arquivo ou os nomes simplesmente listando o conteúdo da imagem do disco virtual.
         *   **Integridade do Arquivo**: O hash SHA-256 do conteúdo original e não criptografado de um arquivo é calculado antes do "upload" e armazenado em seu `Node`. Isso permite futuras verificações de que o arquivo não foi corrompido ou adulterado (embora este recurso ainda não seja exposto por meio de uma função pública).
-        *   **Derivação de Chave**: O `secret` mestre (senha) do usuário é "hasheado" com SHA-256 para produzir uma chave de 32 bytes. Esta chave derivada é usada como a chave de entrada para a cifra AES.
+        *   **Derivação de Chave**: O `secret` mestre (senha) do usuário é "hasheado" com SHA-256 para produzir uma chave de 32 bytes. Esta chave derivada é usada como a chave de entrada para a criptografia AES-256 (key-wrapping).
+
+3.  **AES-256 (key-wrapping)**
+    *   **Propósito**: AES-256 (key-wrapping) é usado como uma cifra de Criptografia de Chave de Criptografia (KEK). Seu único propósito é criptografar e descriptografar a chave mestra AES (`fsTableKey`) e o valor "canary".
+    *   **Como é usado**: A biblioteca precisa de uma chave mestra AES para criptografar o arquivo de metadados `fstab.json`. 
+	Armazenar esta chave em texto simples seria inseguro. Em vez disso, esta chave mestra (`fsTableKey`) é ela própria criptografada por AES-256 (key-wrapping). 
+	A chave para a criptografia AES-256 (key-wrapping) é derivada diretamente do `secret` do usuário via SHA-256. Isso cria um mecanismo seguro de "key-wrapping".
 
 ### A Hierarquia de Chaves
 
 A segurança de todo o sistema de arquivos depende de um sistema de chaves em dois níveis:
 
 1.  **`secret` do Usuário (Senha)**: Fornecido pelo usuário em tempo de execução. Nunca é armazenado.
-    *   `SHA-256(secret)` -> **Chave AES** (32 bytes)
+    *   `SHA-256(secret)` -> **Chave AES** (32 bytes) (para key-wrapping)
 
 2.  **`fsTableKey` (Chave Mestra AES)**: Uma chave de 32 bytes gerada aleatoriamente criada durante a inicialização do disco. Esta chave é usada para criptografar/descriptografar `fstab.json`.
-    *   `Encrypt(Chave aes, fsTableKey)` -> **Chave Mestra Criptografada** (armazenada em `/fstab.key`)
+    *   `AESEncrypt(Chave AES, fsTableKey)` -> **Chave Mestra Criptografada** (armazenada em `/fstab.key`)
 
 3.  **Chaves por Arquivo**: Chaves AES de 32 bytes e IVs de 16 bytes geradas aleatoriamente para cada arquivo.
     *   Estes são armazenados (codificados em Base64) dentro do arquivo `fstab.json`. Como `fstab.json` é criptografado com a `fsTableKey`, as chaves por arquivo também são indiretamente protegidas pela chave mestra.
@@ -108,8 +114,8 @@ A segurança de todo o sistema de arquivos depende de um sistema de chaves em do
 
 ### `fstab.key`: A Chave Mestra Criptografada
 
-*   **Geração (`GenerateAndSaveFSTableKey`)**: Quando um novo disco é formatado, uma chave aleatória de 32 bytes criptograficamente segura é gerada. Esta é a `fsTableKey`. Esta chave é imediatamente criptografada, sendo a chave de criptografia o hash SHA-256 do `secret` do usuário. O texto cifrado resultante é gravado no arquivo `/fstab.key` dentro do disco virtual.
-*   **Uso (`LoadFSTableKey`)**: Durante a inicialização da sessão, a biblioteca lê o "blob" criptografado de `/fstab.key`. Em seguida, usa o hash SHA-256 do `secret` fornecido pelo usuário para descriptografar este "blob" com AES. O resultado bem-sucedido é a `fsTableKey` em texto simples, que é carregada em uma variável global durante a sessão.
+*   **Geração (`GenerateAndSaveFSTableKey`)**: Quando um novo disco é formatado, uma chave aleatória de 32 bytes criptograficamente segura é gerada. Esta é a `fsTableKey`. Esta chave é imediatamente criptografada usando AES-256 (key-wrapping), sendo a chave de criptografia o hash SHA-256 do `secret` do usuário. O texto cifrado resultante é gravado no arquivo `/fstab.key` dentro do disco virtual.
+*   **Uso (`LoadFSTableKey`)**: Durante a inicialização da sessão, a biblioteca lê o "blob" criptografado de `/fstab.key`. Em seguida, usa o hash SHA-256 do `secret` fornecido pelo usuário para descriptografar este "blob" com AES-256 (key-wrapping). O resultado bem-sucedido é a `fsTableKey` em texto simples, que é carregada em uma variável global durante a sessão.
 *   **Propósito**: Este arquivo atua como um "cofre" seguro para a chave mestra. Ele permite que a chave mestra seja armazenada no disco sem estar em texto simples. O acesso a ela é "protegido" pelo `secret` do usuário.
 
 ### `fstab.json`: Os Metadados do Sistema de Arquivos
@@ -125,7 +131,7 @@ A segurança de todo o sistema de arquivos depende de um sistema de chaves em do
 
 ### `canary.key`: O Mecanismo de Verificação de Senha
 
-*   **Processo (`InitSession` & `VerifySecret`)**: Durante a inicialização do disco, uma string constante e conhecida (`"CRIPTO-DISK-CANARY"`) é criptografada usando a cifra Rigel (com a chave derivada do `secret` do usuário) e armazenada em `/canary.key`. Quando um usuário inicia uma sessão posteriormente, o primeiro passo é descriptografar este arquivo. Se o conteúdo descriptografado corresponder à string "canary" conhecida, o `secret` está correto. Caso contrário, o `secret` está errado, e a sessão é imediatamente encerrada.
+*   **Processo (`InitSession` & `VerifySecret`)**: Durante a inicialização do disco, uma string constante e conhecida (`"CRIPTO-DISK-CANARY"`) é criptografada usando AES-256 (key-wrapping) (com a chave derivada do `secret` do usuário) e armazenada em `/canary.key`. Quando um usuário inicia uma sessão posteriormente, o primeiro passo é descriptografar este arquivo. Se o conteúdo descriptografado corresponder à string "canary" conhecida, o `secret` está correto. Caso contrário, o `secret` está errado, e a sessão é imediatamente encerrada.
 *   **Porquê**: Isso fornece um método rápido e de baixo custo para validar a senha do usuário sem tentar descriptografar o `fstab.key`, que é mais complexo e vital. Ele evita a potencial corrupção de dados que poderia surgir ao prosseguir com chaves incorretas e fornece feedback imediato e claro para uma senha errada.
 
 ## 5. Fluxo da Biblioteca e Processos Detalhados
@@ -138,8 +144,8 @@ A segurança de todo o sistema de arquivos depende de um sistema de chaves em do
     *   Ele é particionado e formatado com o sistema de arquivos FAT32.
     *   `GenerateAndSaveFSTableKey` é chamado:
         *   Uma nova `fsTableKey` de 32 bytes é gerada aleatoriamente.
-        *   Esta chave é criptografada com Rigel (usando o `secret`) e salva em `/fstab.key`.
-        *   A string "canary" é criptografada com Rigel e salva em `/canary.key`.
+        *   Esta chave é criptografada com AES-256 (key-wrapping) (usando o `secret`) e salva em `/fstab.key`.
+        *   A string "canary" é criptografada com AES-256 (key-wrapping) e salva em `/canary.key`.
     *   `SaveFSTab` é chamado:
         *   Um mapa `nodes` vazio é serializado para JSON.
         *   Este JSON é criptografado com AES-256-CTR usando a nova `fsTableKey`.
@@ -193,6 +199,7 @@ O usuário deseja copiar `/trabalho/relatorio.docx` para `C:\temp\relatorio_recu
 *   `ListFile`: Lista o conteúdo de um diretório ou encontra arquivos que correspondem a um padrão. Opera inteiramente no mapa `nodes` em memória para alto desempenho.
 *   `RenameFile`: Renomeia um arquivo no sistema de arquivos virtual para um novo caminho. Se o novo caminho for em um diretório diferente, o arquivo é efetivamente movido.
 *   `MoveFile`: Move um arquivo de um caminho de origem para um caminho de destino no sistema de arquivos virtual.
+*   `GetDiskSpaceInfo`: Retorna o espaço total, usado e livre do disco virtual em bytes.
 *   `InitSession`: Inicializa uma sessão verificando o "secret" do usuário e carregando todos os metadados na memória.
 *   `CloseSession`: Fecha a sessão de forma segura, limpando todos os dados sensíveis (chaves, metadados) da memória.
 *   `IsSessionOpen`: Retorna o status atual da sessão.
