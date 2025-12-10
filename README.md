@@ -1,4 +1,4 @@
-# Como Usar
+# Como Usar o Cliente Java
 
 ## 1. Variáveis de ambiente
 
@@ -11,6 +11,33 @@
 Descompacte o arquivo WAR e execute ```java -jar cdisk.war```
 
 Aponte seu browser para ```http://localhost:36020```
+
+# Como Importar a Biblioteca no Seu Projeto
+
+Use o arquivo de header para importar a biblioteca como faria normalmente na sua linguagem de programação preferida. Os métodos publicados são:
+
+```
+public interface IFileSystemLibrary extends Library {
+        boolean IsSessionOpen();
+        String  ListFile(String searchPattern);
+        String GetDiskSpaceInfo();
+        int DangerFormatDisk( Integer size );
+        int InitSession(String imgFile, String key, String index);
+        int CloseSession();
+        int CopyFileToFS(String srcPath, String dstPath);
+        int CopyFileFromFS(String srcPath, String dstPath);
+        int CopyFileMap(String dstPath);
+        int CopyFileMapDecrypted(String dstPath);
+        int DeleteFile(String filePath);
+        int CreateDir(String dirPath);
+        int DeleteFolder(String folderPath);
+        int EmptyFolder(String folderPath);
+        int MoveFile(String fullPathSource, String fullPathTarget);
+        int RenameFile(String oldPath, String newPath);
+        int BackupFileSystem();
+        int DangerDeleteFileSystemFile();
+}
+```
 
 # Biblioteca Go CDisk: Mergulho Técnico Profundo
 
