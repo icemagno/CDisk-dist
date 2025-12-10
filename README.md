@@ -16,7 +16,7 @@ Descompacte o arquivo WAR
 
 Execute 
 
-```java -jar cdisk.war```
+```java -jar cdisk-1.1.war```
 
 Aponte seu browser para ```http://localhost:36020```
 
