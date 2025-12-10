@@ -8,7 +8,14 @@
 
 ## 2. Executando
 
-Descompacte o arquivo WAR e execute ```java -jar cdisk.war```
+Descompacte o arquivo WAR 
+
+```cat cdisk-1.1.* > combined_archive.gz```
+```gunzip combined_archive.gz```
+
+Execute 
+
+```java -jar cdisk.war```
 
 Aponte seu browser para ```http://localhost:36020```
 
