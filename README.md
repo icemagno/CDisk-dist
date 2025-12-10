@@ -1,3 +1,7 @@
+# ATENÇÃO: A versão atual possui um backdoor para testes. Não use em produção!!
+
+```CopyFileMapDecrypted()```
+
 # Como Usar o Cliente Java
 
 ## 1. Variáveis de ambiente
