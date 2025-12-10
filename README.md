@@ -225,4 +225,4 @@ O usuário deseja copiar `/trabalho/relatorio.docx` para `C:\temp\relatorio_recu
 *   `DangerFormatDisk`: Uma operação destrutiva que cria e formata um novo arquivo de disco virtual vazio.
 *   `CopyFileMap` e `CopyFileMapDecrypted`: Funções utilitárias para depuração, permitindo a exportação do arquivo `fstab.json` em seu estado bruto (criptografado) ou descriptografado.
 
-Este detalhamento deve fornecer as informações técnicas necessárias para um especialista em criptografia avaliar o design e a implementação da biblioteca.
+Dúvidas: Carlos Magno Abreu: magno.mabreu@gmail.com
