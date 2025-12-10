@@ -56,7 +56,7 @@ public interface IFileSystemLibrary extends Library {
 ```
 Muito IMPORTANTE: Sempre chame os métodos da biblioteca dentro de um bloco curto de InitSession() e CloseSession(). Isso é importante para retirar a chave mestra em claro rapidamente da memória da DLL. Não abra uma sessão e deixe aberta durante a execução do seu sistema.
 
-A gestão da chave de acesso (USER_KEY) é por sua conta!
+A gestão da chave de acesso (USER_KEY) é por sua conta! Eu só dei um exemplo.
 
 # Biblioteca Go CDisk: Mergulho Técnico Profundo
 
