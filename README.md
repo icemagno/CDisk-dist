@@ -10,9 +10,9 @@
 
 Descompacte o arquivo WAR 
 
-```cat cdisk-1.1.* > combined_archive.gz```
+```apt install 7zip```
 
-```gunzip combined_archive.gz```
+```7zz x cdisk-1.1.war.gz.001```
 
 Execute 
 
