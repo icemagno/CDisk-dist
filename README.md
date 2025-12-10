@@ -8,7 +8,7 @@
 
 ## 2. Homologado em Java 22
 
-```apt install openjdk-25-jdk```
+```apt install openjdk-22-jdk```
 
 ## 3. Executando
 
