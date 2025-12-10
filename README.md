@@ -1,8 +1,8 @@
-# Biblioteca Go CDisk-V2: Mergulho Técnico Profundo
+# Biblioteca Go CDisk: Mergulho Técnico Profundo
 
 ## 1. Visão Geral da Biblioteca
 
-CDisk-V2 é uma biblioteca Go projetada para fornecer um sistema de arquivos virtual seguro e criptografado. 
+CDisk é uma biblioteca Go projetada para fornecer um sistema de arquivos virtual seguro e criptografado. 
 Ela cria um disco virtual de arquivo único (semelhante a um VHD ou VMDK) formatado com FAT32, mas expõe um ambiente em "sandbox" 
 e totalmente criptografado para o aplicativo cliente. Todos os metadados de arquivos e pastas, bem como o conteúdo dos arquivos, 
 são criptografados, e a estrutura em disco é ofuscada para evitar análises offline.
