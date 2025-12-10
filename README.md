@@ -6,7 +6,11 @@
 - `USER_NAME`: O nome do usuário. Representa o 'owner' dos arquivos.
 - `CDISK_FILE_FOLDER`: A pasta onde o arquivo será gravado. Não coloque o nome do arquivo.
 
-## 2. Executando
+## 2. Homologado em Java 22
+
+```apt install openjdk-25-jdk```
+
+## 3. Executando
 
 Descompacte o arquivo WAR 
 
