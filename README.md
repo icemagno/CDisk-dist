@@ -1,3 +1,17 @@
+# Como Usar
+
+## 1. Variáveis de ambiente
+
+- `USER_KEY`: A senha do usuário para decifrar a tabela fstab e permitir o uso do sistema de arquivos.
+- `USER_NAME`: O nome do usuário. Representa o 'owner' dos arquivos.
+- `CDISK_FILE_FOLDER`: A pasta onde o arquivo será gravado. Não coloque o nome do arquivo.
+
+## 2. Executando
+
+Descompacte o arquivo WAR e execute ```java -jar cdisk.war```
+
+Aponte seu browser para ```http://localhost:36020```
+
 # Biblioteca Go CDisk: Mergulho Técnico Profundo
 
 ## 1. Visão Geral da Biblioteca
