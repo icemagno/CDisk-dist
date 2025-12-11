@@ -42,10 +42,10 @@ Use o arquivo de header para importar a biblioteca como faria normalmente na sua
 
 ```
 public interface IFileSystemLibrary extends Library {
-        int CopyFileMapDecrypted(String dstPath);  <<< ---- Backdoor temporário !!
+		int CopyFileMapDecrypted(String dstPath); // <<------------- BACKDOOR TEMPORÁRIO
 
         boolean IsSessionOpen();
-        String  ListFile(String searchPattern);
+        String ListFile(String searchPattern);
         String GetDiskSpaceInfo();
         int DangerFormatDisk( Integer size );
         int InitSession(String imgFile, String key, String index);
@@ -60,6 +60,8 @@ public interface IFileSystemLibrary extends Library {
         int RenameFile(String oldPath, String newPath);
         int BackupFileSystem();
         int DangerDeleteFileSystemFile();
+        int AddUser(String newUserName, String newUserPassword);
+        int ChangePassword(String newPassword);
 }
 ```
 Muito IMPORTANTE: Sempre chame os métodos da biblioteca dentro de um bloco curto de InitSession() e CloseSession(). Isso é importante para retirar a chave mestra em claro rapidamente da memória da DLL. Não abra uma sessão e deixe aberta durante a execução do seu sistema.
