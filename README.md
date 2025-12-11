@@ -12,15 +12,23 @@
 
 ## 2. Homologado em Java 22
 
-```apt install openjdk-22-jdk```
+Linux ```apt install openjdk-22-jdk```
+
+Windows ```https://jdk.java.net/archive/```
 
 ## 3. Executando
 
 Descompacte o arquivo WAR 
 
+Linux
+
 ```apt install 7zip```
 
 ```7zz x cdisk-1.1.war.gz.001```
+
+Windows
+
+```https://www.7-zip.org/download.html``` 
 
 Execute 
 
