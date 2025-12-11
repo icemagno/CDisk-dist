@@ -108,7 +108,7 @@ A biblioteca emprega um esquema criptográfico multi-camadas para garantir confi
 1.  **AES-256-CTR (Advanced Encryption Standard, Counter Mode)**
     *   **Propósito**: Usado para criptografia simétrica de todo o conteúdo dos arquivos e do arquivo de metadados principal (`fstab.json`).
     *   **Como é usado para Arquivos**: Cada arquivo armazenado no disco virtual é criptografado com sua própria chave AES de 32 bytes exclusiva e gerada aleatoriamente e um IV de 16 bytes exclusivo. Esta chave e IV são armazenados dentro da estrutura `Node` correspondente ao arquivo. O modo CTR é escolhido porque opera como uma cifra de fluxo, o que significa que o conteúdo do arquivo pode ser criptografado e descriptografado "on-the-fly" sem a necessidade de carregar o arquivo inteiro na memória, tornando-o eficiente para arquivos grandes.
-    *   **Como é usado para Metadados**: O arquivo `fstab.json`, que contém o mapa de todas as estruturas `Node`, também é criptografado usando AES-256-CTR. 
+    *   **Como é usado para Metadados**: O arquivo `fstab.dat` compartilhado, que contém o mapa de todas as estruturas `Node`, também é criptografado usando AES-256-CTR. 
 	A chave para esta operação é a `fsTableKey`. Um novo IV aleatório é gerado cada vez que o arquivo é salvo, e este IV é precedido ao texto cifrado.
 
 2.  **SHA-256 (Secure Hash Algorithm 256-bit)**
@@ -116,76 +116,69 @@ A biblioteca emprega um esquema criptográfico multi-camadas para garantir confi
     *   **Como é usado**:
         *   **Ofuscação de Caminho**: O caminho visível para o usuário de cada arquivo e pasta (por exemplo, `/trabalho/relatorio.docx`) é "hasheado" usando SHA-256. A string hexadecimal resultante (por exemplo, `1a7f...`) torna-se o nome real desse item no disco virtual (`HashName`). Isso impossibilita discernir a estrutura original do arquivo ou os nomes simplesmente listando o conteúdo da imagem do disco virtual.
         *   **Integridade do Arquivo**: O hash SHA-256 do conteúdo original e não criptografado de um arquivo é calculado antes do "upload" e armazenado em seu `Node`. Isso permite futuras verificações de que o arquivo não foi corrompido ou adulterado (embora este recurso ainda não seja exposto por meio de uma função pública).
-        *   **Derivação de Chave**: O `secret` mestre (senha) do usuário é "hasheado" com SHA-256 para produzir uma chave de 32 bytes. Esta chave derivada é usada como a chave de entrada para a criptografia AES-256 (key-wrapping).
+        *   **Derivação de Chave (KEK)**: O `secret` (senha) de um usuário é "hasheado" com SHA-256 para produzir uma chave de 32 bytes. Esta chave derivada funciona como uma Chave de Criptografia de Chave (KEK) e é usada exclusivamente para criptografar (wrap) e descriptografar (unwrap) a `fsTableKey` mestra.
 
-3.  **AES-256 (key-wrapping)**
-    *   **Propósito**: AES-256 (key-wrapping) é usado como uma cifra de Criptografia de Chave de Criptografia (KEK). Seu único propósito é criptografar e descriptografar a chave mestra AES (`fsTableKey`) e o valor "canary".
-    *   **Como é usado**: A biblioteca precisa de uma chave mestra AES para criptografar o arquivo de metadados `fstab.json`. 
-	Armazenar esta chave em texto simples seria inseguro. Em vez disso, esta chave mestra (`fsTableKey`) é ela própria criptografada por AES-256 (key-wrapping). 
-	A chave para a criptografia AES-256 (key-wrapping) é derivada diretamente do `secret` do usuário via SHA-256. Isso cria um mecanismo seguro de "key-wrapping".
+3.  **AES-256 (Key Wrapping)**
+    *   **Propósito**: Usado como um mecanismo de "key wrapping" para criptografar a `fsTableKey` (a chave que criptografa os dados) com uma KEK (a chave derivada da senha).
+    *   **Como é usado**: A `fsTableKey` nunca deve ser armazenada em texto simples. Em vez disso, ela é criptografada usando AES-256. A chave para esta operação de criptografia é a KEK de 32 bytes derivada do `secret` do usuário (`SHA-256(secret)`). O resultado — a `fsTableKey` criptografada — é o que é armazenado nos arquivos de chave específicos do usuário no diretório `/keys`. Este processo garante que o acesso à `fsTableKey` seja protegido pela senha de cada usuário individualmente.
 
 ### A Hierarquia de Chaves
 
-A segurança de todo o sistema de arquivos depende de um sistema de chaves em dois níveis:
+A segurança do sistema agora se baseia em uma hierarquia de chaves de três níveis, projetada para acesso multiusuário seguro:
 
-1.  **`secret` do Usuário (Senha)**: Fornecido pelo usuário em tempo de execução. Nunca é armazenado.
-    *   `SHA-256(secret)` -> **Chave AES** (32 bytes) (para key-wrapping)
+1.  **`secret` do Usuário (Nível 1)**: A senha de texto simples fornecida por um usuário durante a autenticação. Nunca é armazenada.
+    *   **Processo**: `SHA-256(secret) -> Chave de Criptografia de Chave (KEK) de 32 bytes`.
+    *   **Propósito**: A KEK é uma chave de curta duração, derivada da senha, usada exclusivamente para descriptografar um único arquivo: o arquivo de chave do usuário.
 
-2.  **`fsTableKey` (Chave Mestra AES)**: Uma chave de 32 bytes gerada aleatoriamente criada durante a inicialização do disco. Esta chave é usada para criptografar/descriptografar `fstab.json`.
-    *   `AESEncrypt(Chave AES, fsTableKey)` -> **Chave Mestra Criptografada** (armazenada em `/fstab.key`)
+2.  **`fsTableKey` (Chave Mestra de Dados, Nível 2)**: Uma chave AES de 32 bytes, gerada aleatoriamente na formatação do disco. Existe apenas uma `fsTableKey` por sistema de arquivos.
+    *   **Processo**: A `fsTableKey` é criptografada (wrapped) pela KEK de um usuário e armazenada no arquivo de chave desse usuário em `/keys/`.
+    *   **Propósito**: Esta é a chave mestra que criptografa e descriptografa o arquivo de metadados central e compartilhado, `/system/fstab.dat`. Quem possui a `fsTableKey` tem acesso a todos os metadados do sistema de arquivos.
 
-3.  **Chaves por Arquivo**: Chaves AES de 32 bytes e IVs de 16 bytes geradas aleatoriamente para cada arquivo.
-    *   Estes são armazenados (codificados em Base64) dentro do arquivo `fstab.json`. Como `fstab.json` é criptografado com a `fsTableKey`, as chaves por arquivo também são indiretamente protegidas pela chave mestra.
-
-## 4. Arquivos de Controle e Processos Principais
-
-### `fstab.key`: A Chave Mestra Criptografada
-
-*   **Geração (`GenerateAndSaveFSTableKey`)**: Quando um novo disco é formatado, uma chave aleatória de 32 bytes criptograficamente segura é gerada. Esta é a `fsTableKey`. Esta chave é imediatamente criptografada usando AES-256 (key-wrapping), sendo a chave de criptografia o hash SHA-256 do `secret` do usuário. O texto cifrado resultante é gravado no arquivo `/fstab.key` dentro do disco virtual.
-*   **Uso (`LoadFSTableKey`)**: Durante a inicialização da sessão, a biblioteca lê o "blob" criptografado de `/fstab.key`. Em seguida, usa o hash SHA-256 do `secret` fornecido pelo usuário para descriptografar este "blob" com AES-256 (key-wrapping). O resultado bem-sucedido é a `fsTableKey` em texto simples, que é carregada em uma variável global durante a sessão.
-*   **Propósito**: Este arquivo atua como um "cofre" seguro para a chave mestra. Ele permite que a chave mestra seja armazenada no disco sem estar em texto simples. O acesso a ela é "protegido" pelo `secret` do usuário.
-
-### `fstab.json`: Os Metadados do Sistema de Arquivos
-
-*   **Processo**: Este arquivo armazena a serialização JSON do mapa `nodes`, que é a representação completa em memória da estrutura do sistema de arquivos. Ele mapeia nomes ofuscados em disco (`HashName`) para nomes amigáveis ao usuário (`ActualName`) e contém as chaves de descriptografia (`KeyBase64`, `Iv`) para cada arquivo. O nome do arquivo no disco virtual é o hash SHA-256 do nome de usuário fornecido na inicialização da sessão. Isso ajuda a ocultar o arquivo de metadados entre outros arquivos, tornando-o indistinguível para um invasor.
-*   **Estrutura de Nó como um Hash Map**: Usar um "hash map" (`map[string]Node`) fornece uma complexidade de tempo média O(1) extremamente rápida para pesquisas de metadados. Para encontrar um arquivo como `/a/b/c.txt`, a biblioteca simplesmente calcula `HashPath("/a/b/c.txt")` e pesquisa o resultado no mapa. Isso evita a travessia lenta e recursiva de diretórios.
-*   **Criptografia**: Este arquivo é sempre criptografado em disco usando AES-256-CTR com a `fsTableKey`. Ele é descriptografado no mapa `nodes` uma vez no início de uma sessão (`ReadFSTab`) e é recriptografado e gravado de volta no disco (`SaveFSTab`) toda vez que uma alteração é feita no sistema de arquivos (criação, exclusão de arquivo/pasta, etc.).
-
-### Ofuscação de Arquivos e Pastas
-
-*   **Processo**: Nenhum arquivo ou pasta no disco virtual é armazenado com seu nome original. Em vez disso, seu nome em disco é o hash SHA-256 de seu caminho completo visível para o usuário. Por exemplo, uma pasta criada em `/Minhas Fotos` será armazenada no sistema de arquivos FAT32 como um diretório chamado `c3c6...`. Um arquivo adicionado em `/Minhas Fotos/gato.jpg` será armazenado como um arquivo chamado `5f8a...` dentro do diretório `c3c6...`.
-*   **Porquê**: Isso fornece uma poderosa camada de privacidade. Um adversário com acesso à imagem bruta do disco não pode determinar a estrutura do sistema de arquivos, os nomes originais dos arquivos ou como eles estão organizados. Eles veriam apenas uma coleção "plana" de diretórios e arquivos com nomes hexadecimais longos e de aparência aleatória. O mapeamento para restaurar essa estrutura está guardado dentro do arquivo `fstab.json` criptografado.
-
-### `canary.key`: O Mecanismo de Verificação de Senha
-
-*   **Processo (`InitSession` & `VerifySecret`)**: Durante a inicialização do disco, uma string constante e conhecida (`"CRIPTO-DISK-CANARY"`) é criptografada usando AES-256 (key-wrapping) (com a chave derivada do `secret` do usuário) e armazenada em `/canary.key`. Quando um usuário inicia uma sessão posteriormente, o primeiro passo é descriptografar este arquivo. Se o conteúdo descriptografado corresponder à string "canary" conhecida, o `secret` está correto. Caso contrário, o `secret` está errado, e a sessão é imediatamente encerrada.
-*   **Porquê**: Isso fornece um método rápido e de baixo custo para validar a senha do usuário sem tentar descriptografar o `fstab.key`, que é mais complexo e vital. Ele evita a potencial corrupção de dados que poderia surgir ao prosseguir com chaves incorretas e fornece feedback imediato e claro para uma senha errada.
+3.  **Chaves de Arquivo (Nível 3)**: Chaves AES de 32 bytes e IVs de 16 bytes, geradas aleatoriamente para cada arquivo individual.
+    *   **Processo**: São armazenadas, codificadas em Base64, dentro da estrutura `Node` de cada arquivo no `fstab.dat`.
+    *   **Propósito**: Criptografar o conteúdo real dos arquivos. Como elas são armazenadas no `fstab.dat`, estão protegidas pela `fsTableKey` (Nível 2), que por sua vez é protegida pela senha do usuário (Nível 1).
 
 ## 5. Fluxo da Biblioteca e Processos Detalhados
 
 ### Primeiro Acesso (Criação do Sistema de Arquivos)
 
-1.  **`InitSession`**: Um cliente chama esta função com um caminho para um arquivo não existente e um `secret`. A sessão é iniciada em memória.
-2.  **`DangerFormatDisk`**: O cliente deve chamar esta função para criar o disco.
-    *   Um novo arquivo de imagem de disco é criado com o tamanho especificado.
-    *   Ele é particionado e formatado com o sistema de arquivos FAT32.
-    *   `GenerateAndSaveFSTableKey` é chamado:
-        *   Uma nova `fsTableKey` de 32 bytes é gerada aleatoriamente.
-        *   Esta chave é criptografada com AES-256 (key-wrapping) (usando o `secret`) e salva em `/fstab.key`.
-        *   A string "canary" é criptografada com AES-256 (key-wrapping) e salva em `/canary.key`.
-    *   `SaveFSTab` é chamado:
-        *   Um mapa `nodes` vazio é serializado para JSON.
-        *   Este JSON é criptografado com AES-256-CTR usando a nova `fsTableKey`.
-        *   Os dados criptografados são gravados em `/fstab.json`.
-3.  O disco agora está inicializado e pronto para uso.
+1.  **`InitSession`**: O cliente chama esta função com um caminho para um arquivo de disco não existente, uma senha (`secret`) e um nome de usuário (`userName`).
+2.  **`DangerFormatDisk`**: O cliente chama esta função para criar e inicializar o disco.
+    *   Um novo arquivo de imagem de disco é criado e formatado com FAT32.
+    *   Os diretórios `/keys` e `/system` são criados na raiz.
+    *   Uma `fsTableKey` (chave mestra) de 32 bytes, criptograficamente segura, é gerada.
+    *   A senha do usuário formatador é usada para derivar uma KEK (`SHA-256(secret)`).
+    *   A `fsTableKey` é criptografada com esta KEK, e o resultado é salvo no arquivo de chave do usuário inicial (ex: `/keys/<hash_do_userName>.key`).
+    *   `SaveFSTab` é chamado para salvar um `fstab.dat` inicial, vazio e criptografado com a `fsTableKey`.
 
-### Acesso Consecutivo (Sistema de Arquivos Existente)
+### Acesso Consecutivo (Login de Usuário Existente)
 
-1.  **`InitSession`**: Um cliente chama esta função com o caminho para o arquivo de disco existente e o `secret`.
-2.  **Verificação "Canary" (`VerifySecret`)**: A biblioteca lê imediatamente `/canary.key`, descriptografa-o com o `secret` e verifica o conteúdo. Se falhar, a função é abortada com um erro (-5).
-3.  **Carregamento da Chave Mestra (`LoadFSTableKey`)**: Se a verificação "canary" for bem-sucedida, a biblioteca lê `/fstab.key`, descriptografa-o com o `secret` e carrega a `fsTableKey` mestra na memória.
-4.  **Carregamento de Metadados (`ReadFSTab`)**: A biblioteca lê `/fstab.json`, descriptografa-o usando a `fsTableKey` recém-carregada e "desmarshala" o JSON no mapa `nodes`.
-5.  A sessão agora está totalmente ativa e o sistema de arquivos está pronto.
+1.  **`InitSession`**: O cliente chama com o caminho do disco, nome de usuário e senha.
+2.  **Derivação da KEK**: A biblioteca calcula `SHA-256(secret)` para obter a KEK para esta sessão.
+3.  **Carregamento da Chave Mestra (`LoadFSTableKey`)**:
+    *   A biblioteca constrói o caminho para o arquivo de chave do usuário (ex: `/keys/<hash_do_userName>.key`).
+    *   Ela lê o conteúdo criptografado deste arquivo.
+    *   Tenta descriptografar o conteúdo usando a KEK derivada.
+    *   **Sucesso**: A `fsTableKey` em texto simples é recuperada e carregada na memória da sessão. A senha é válida.
+    *   **Falha**: Um erro é retornado, indicando usuário não encontrado ou senha incorreta.
+4.  **Carregamento de Metadados (`ReadFSTab`)**: Com a `fsTableKey` em memória, a biblioteca descriptografa e carrega o `/system/fstab.dat` no mapa `nodes`. A sessão está totalmente ativa.
+
+### Adicionando um Novo Usuário
+
+1.  **`AddUser(newUserName, newUserPassword)`**: Chamado por um usuário já logado.
+2.  **Validação**: A função verifica se uma sessão está ativa (garantindo que o chamador está autenticado).
+3.  **Derivação da Nova KEK**: Calcula `SHA-256(newUserPassword)` para obter a KEK do novo usuário.
+4.  **Recuperação da Chave Mestra**: A `fsTableKey` em texto simples é recuperada da memória da sessão atual.
+5.  **Criptografia e Armazenamento**: A `fsTableKey` é criptografada com a KEK do novo usuário. O resultado é gravado em um novo arquivo de chave (ex: `/keys/<hash_do_newUserName>.key`).
+
+### Alterando a Senha de um Usuário
+
+1.  **`ChangePassword(newPassword)`**: Chamado por um usuário já logado.
+2.  **Validação**: Verifica a sessão ativa.
+3.  **Derivação da Nova KEK**: Calcula `SHA-256(newPassword)`.
+4.  **Recuperação da Chave Mestra**: A `fsTableKey` em texto simples é recuperada da memória da sessão.
+5.  **Criptografia e Sobrescrita**: A `fsTableKey` é criptografada com a nova KEK. O resultado **sobrescreve** o arquivo de chave existente do usuário atual (ex: `/keys/<hash_do_currentUser>.key`).
+6.  **Atualização da Sessão**: A biblioteca atualiza o `secret` em memória da sessão atual para o `newPassword`, permitindo que o usuário continue trabalhando na mesma sessão sem precisar fazer login novamente.
 
 ### Exemplo: "Upload" de um Arquivo
 
@@ -226,11 +219,13 @@ O usuário deseja copiar `/trabalho/relatorio.docx` para `C:\temp\relatorio_recu
 *   `ListFile`: Lista o conteúdo de um diretório ou encontra arquivos que correspondem a um padrão. Opera inteiramente no mapa `nodes` em memória para alto desempenho.
 *   `RenameFile`: Renomeia um arquivo no sistema de arquivos virtual para um novo caminho. Se o novo caminho for em um diretório diferente, o arquivo é efetivamente movido.
 *   `MoveFile`: Move um arquivo de um caminho de origem para um caminho de destino no sistema de arquivos virtual.
+*   `AddUser`: Permite que um usuário logado adicione um novo usuário ao sistema de arquivos, fornecendo um novo nome de usuário e senha. Cria um novo arquivo de chave para o novo usuário.
+*   `ChangePassword`: Permite que o usuário logado altere sua própria senha. Re-criptografa o arquivo de chave do usuário atual com a nova senha.
 *   `GetDiskSpaceInfo`: Retorna o espaço total, usado e livre do disco virtual em bytes.
-*   `InitSession`: Inicializa uma sessão verificando o "secret" do usuário e carregando todos os metadados na memória.
+*   `InitSession`: Inicializa uma sessão, autenticando o usuário através da descriptografia de seu arquivo de chave e carregando os metadados do sistema de arquivos compartilhado na memória.
 *   `CloseSession`: Fecha a sessão de forma segura, limpando todos os dados sensíveis (chaves, metadados) da memória.
 *   `IsSessionOpen`: Retorna o status atual da sessão.
-*   `DangerFormatDisk`: Uma operação destrutiva que cria e formata um novo arquivo de disco virtual vazio.
-*   `CopyFileMap` e `CopyFileMapDecrypted`: Funções utilitárias para depuração, permitindo a exportação do arquivo `fstab.json` em seu estado bruto (criptografado) ou descriptografado.
+*   `DangerFormatDisk`: Uma operação destrutiva que cria um novo disco virtual, formata-o e registra o usuário atual como o primeiro administrador do sistema de arquivos.
+*   `CopyFileMap` e `CopyFileMapDecrypted`: Funções utilitárias para depuração, permitindo a exportação do arquivo `fstab.dat` em seu estado bruto (criptografado) ou descriptografado.
 
 Dúvidas: Carlos Magno Abreu: magno.mabreu@gmail.com
