@@ -1,0 +1,5 @@
+11/12/2025 - Versão 3 da biblioteca CDisk
+	* Nova funcionalidade : Adicionar novo usuário
+	* Nova Funcionalidade : Mudar senha
+	* Proteção contra ataque de memória na chave mestra
+	* Cliente Java atualizado
